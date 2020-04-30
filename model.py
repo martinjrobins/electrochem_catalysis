@@ -168,6 +168,7 @@ class CatalyticModel(pints.ForwardModel):
 
         # Store discretised model and solver
         self._model = model
+        self._param = param
         self._solver = solver
         self._omega_d = param.process_symbol(omega_d).evaluate()
         self._I_0 = param.process_symbol(I_0).evaluate()
@@ -193,6 +194,7 @@ class CatalyticModel(pints.ForwardModel):
             solution["O(surf) [non-dim]"](times),
             solution["S(soln) at electrode [non-dim]"](times),
             solution["Applied Voltage [non-dim]"](times),
+            input_parameters
         )
 
     def n_parameters(self):
@@ -201,29 +203,34 @@ class CatalyticModel(pints.ForwardModel):
 
 if __name__ == '__main__':
     model = CatalyticModel()
+    print(model._param)
     x = [1.0, 100.0, 0.0, 0.5, 8.0, 20.0e-12]
 
     n = 2000
     t_eval = np.linspace(0, 35, n)
-    current, theta, s_soln, Eapp = model.simulate(x, t_eval)
+    current, theta, s_soln, Eapp, input_parameters = model.simulate(x, t_eval)
+    print(input_parameters)
     plt.figure()
     plt.plot(t_eval, current)
     plt.ylabel("current [non-dim]")
     plt.xlabel("time [non-dim]")
+    plt.savefig("current_nondim.pdf")
 
-    plt.figure()
+    plt.cla()
     plt.plot(t_eval, s_soln)
     plt.ylabel("S(soln) at electrode [non-dim]")
     plt.xlabel("time [non-dim]")
+    plt.savefig("s_soln_nondim.pdf")
 
-    plt.figure()
+    plt.cla()
     plt.plot(t_eval, theta)
     plt.ylabel("O(surf) [non-dim]")
     plt.xlabel("time [non-dim]")
+    plt.savefig("o_surf_nondim.pdf")
 
-    plt.figure()
+    plt.cla()
     plt.plot(t_eval, Eapp)
     plt.ylabel("Applied Voltage [non-dim]")
     plt.xlabel("time [non-dim]")
+    plt.savefig("e_app_nondim.pdf")
 
-    plt.show()
