@@ -170,24 +170,7 @@ class CatalyticModel(pints.ForwardModel):
         disc.process_model(model)
 
         # Create solver
-        #solver = pybamm.CasadiSolver(mode="fast", rtol=1e-6, atol=1e-8,
-        #                             extra_options_setup={
-        #                                 "linear_multistep_method": "adams",
-        #                                 "print_stats": True,
-        #                             })
-                                     #extra_options_setup={"max_num_steps": 10})
-                                     #extra_options_call={"verbose": True})
         solver = pybamm.ScipySolver(rtol=1e-6, atol=1e-6)
-        #solver = pybamm.JaxSolver(rtol=1e-6, atol=1e-6)
-        #model.convert_to_format = 'jax'
-        #for eq in model.rhs.values():
-        #    for node in eq.pre_order():
-        #        if isinstance(node, pybamm.Matrix):
-        #            print('found')
-        #            if scipy.sparse.issparse(node.entries):
-        #                node._entries = node.entries.toarray()
-        #solver = pybamm.ScikitsOdeSolver(rtol=1e-6, atol=1e-8,
-        #                                 extra_options={'mxsteps':1000})
 
         # Store discretised model and solver
         self._model = model
@@ -208,7 +191,7 @@ class CatalyticModel(pints.ForwardModel):
         }
 
         try:
-            pybamm.set_logging_level('DEBUG')
+            #pybamm.set_logging_level('DEBUG')
             solution = self._solver.solve(
                 self._model, times, inputs=input_parameters)
         except pybamm.SolverError as e:
@@ -228,7 +211,7 @@ class CatalyticModel(pints.ForwardModel):
 
 if __name__ == '__main__':
     model = CatalyticModel()
-    print(model._param)
+    print('model parameters:\n', model._param)
     x = [1e6, 1e10, 0.0, 0.5, 8.0, 20.0e-12]
 
     n = 2000
@@ -317,7 +300,7 @@ if __name__ == '__main__':
     #Harmonicseven = mod.harm_gen(Ievennorm,TnonDim,[omega],bandwidth, 1)
 
 
-    print(input_parameters)
+    print('input parameters:\n', input_parameters)
     plt.figure()
     plt.plot(TnonDim, current)
     plt.plot(TnonDim, IDCnorm+Ievennorm+Ioddnorm)
@@ -345,7 +328,6 @@ if __name__ == '__main__':
     plt.xlabel("time [non-dim]")
     plt.savefig("s_soln_nondim.pdf")
     np.savetxt("s_soln_nondim.dat", np.transpose(np.vstack((TnonDim, s_soln))))
-    print(s_soln)
 
     plt.cla()
     plt.plot(TnonDim, theta)
