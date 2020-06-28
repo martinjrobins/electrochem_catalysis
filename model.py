@@ -6,10 +6,6 @@ import Sollplotter_mod as mod
 import scipy as sci
 import scipy
 
-from jax.config import config
-config.update("jax_enable_x64", True)
-
-
 
 class CatalyticModel(pints.ForwardModel):
     def __init__(self, param=None):
@@ -25,7 +21,7 @@ class CatalyticModel(pints.ForwardModel):
                 "Voltage frequency [rad s-1]": 9.0152,
                 "Voltage start [V]": 0.4,
                 "Voltage reverse [V]": -0.4,
-                "Voltage amplitude [V]": 0.0, #0.05,
+                "Voltage amplitude [V]": 0.0,  # 0.05,
                 "Scan Rate [V s-1]": 0.05,
                 "Electrode Coverage [mol cm2]": 6.5e-12,
             })
@@ -128,12 +124,10 @@ class CatalyticModel(pints.ForwardModel):
         x = pybamm.SpatialVariable('x', domain="solution")
         model.geometry = pybamm.Geometry({
             "solution": {
-                "primary":
-                    {x: {
+                    x: {
                         "min": pybamm.Scalar(0),
                         "max": pybamm.Scalar(20)
                     }}
-            }
         })
         model.var_pts = {
             x: 100
@@ -170,7 +164,9 @@ class CatalyticModel(pints.ForwardModel):
         disc.process_model(model)
 
         # Create solver
-        solver = pybamm.ScipySolver(rtol=1e-6, atol=1e-6)
+        model.convert_to_format = 'python'
+        solver = pybamm.ScipySolver(method='BDF', rtol=1e-6, atol=1e-6)
+        #solver = pybamm.CasadiSolver(mode='fast', rtol=1e-8, atol=1e-10)
 
         # Store discretised model and solver
         self._model = model
@@ -212,13 +208,13 @@ class CatalyticModel(pints.ForwardModel):
 if __name__ == '__main__':
     model = CatalyticModel()
     print('model parameters:\n', model._param)
-    x = [1e6, 1e10, 0.0, 0.5, 8.0, 20.0e-12]
+    x = [1e3, 1e10, 0.0, 0.5, 8.0, 20.0e-12]
 
     n = 2000
     Estart = 0.4
     Eend = -0.4
     scanrate = 0.05
-    res = 2**16 # Needs to be higgh enough or fft doesn't go to high enough frequency
+    res = 2**16  # Needs to be higgh enough or fft doesn't go to high enough frequency
 
     # constants
     Rg = 8.314459848  # Gas constant
@@ -227,7 +223,7 @@ if __name__ == '__main__':
 
     # calculate time scale
     Tmax = abs(Estart - Eend)/scanrate
-    Tdim = np.linspace(0,Tmax,res)
+    Tdim = np.linspace(0, Tmax, res)
     TnonDim = (F*scanrate/(Rg*T))*Tdim
 
     if Estart < Eend:
@@ -240,11 +236,11 @@ if __name__ == '__main__':
     # Parameters (Use volts)
     E0 = 0
     Kcat1 = x[1]
-    dE = 0.0 # 0.05 #Sine wave ampliture
+    dE = 0.0  # 0.05 #Sine wave ampliture
     freq = 9.0152
 
     # odd stuff
-    trun = 8 # DON"T INCREASE PAST THIS VALUE ITS PRETTY UNSTABLE
+    trun = 8  # DON"T INCREASE PAST THIS VALUE ITS PRETTY UNSTABLE
 
     # Nondimensionalising parameters
     omega = 2*np.pi*freq*Rg*T/(F*scanrate)
@@ -253,51 +249,55 @@ if __name__ == '__main__':
     Etdcnondim = F/(Rg*T)*Etdc
     Eadjust = (F/(Rg*T))*(Etdc - E0)/2
 
-    Kcat1 =((Rg*T)/(F*scanrate))*Kcat1
+    Kcat1 = ((Rg*T)/(F*scanrate))*Kcat1
 
     # calculate IDCNorm
     IDCnorm = np.ones(res)*(-Kcat1/2)
 
-    for N in range(0,trun+1):
+    for N in range(0, trun+1):
         # case for when g is just tanh
         if N == 0:
             g1 = np.tanh(Eadjust)
         else:
-            g1 = mod.Tanh_nthdev(2*N,Eadjust)
-        g2 = mod.Tanh_nthdev(2*N+1,Eadjust)
+            g1 = mod.Tanh_nthdev(2*N, Eadjust)
+        g2 = mod.Tanh_nthdev(2*N+1, Eadjust)
         """NEED TO DOUBLE CHECK IF ITS 2 TIMES N FACTORIAL OR 2N factorial"""
-        holder = ((dE/4)**(2*N))*(g2- 2*Kcat1*g1)/((2*sci.special.factorial(N))**2)
-        IDCnorm  -= holder
+        holder = ((dE/4)**(2*N))*(g2 - 2*Kcat1*g1)/((2*sci.special.factorial(N))**2)
+        IDCnorm -= holder
 
     # Plot odd harmonics
-    Ioddnorm= np.zeros(res)
-    for N in range(0,trun+1):
-        g2 = mod.Tanh_nthdev(2*N+1,Eadjust)*((dE/4)**(2*N+1))
+    Ioddnorm = np.zeros(res)
+    for N in range(0, trun+1):
+        g2 = mod.Tanh_nthdev(2*N+1, Eadjust)*((dE/4)**(2*N+1))
         holder = 0
-        for i in range(0,N+1):
-            scalar = ((-1)^i)/(sci.special.factorial(N-i)*sci.special.factorial(N+i+1))
-            AC = Kcat1*np.sin((2*i+1)*omega*TnonDim) + (2*i+1)*omega*np.cos((2*i+1)*omega*TnonDim)
+        for i in range(0, N+1):
+            scalar = ((-1) ^ i)/(sci.special.factorial(N-i)
+                      * sci.special.factorial(N+i+1))
+            AC = Kcat1*np.sin((2*i+1)*omega*TnonDim) + (2*i+1) * \
+                              omega*np.cos((2*i+1)*omega*TnonDim)
             holder += scalar*AC
         Ioddnorm += g2*holder
 
     # Plot even harmonics
-    Ievennorm= np.zeros(res)
-    for N in range(0,trun+1):
-        g2 = mod.Tanh_nthdev(2*N+2,Eadjust)*((dE/4)**(2*N+2))
+    Ievennorm = np.zeros(res)
+    for N in range(0, trun+1):
+        g2 = mod.Tanh_nthdev(2*N+2, Eadjust)*((dE/4)**(2*N+2))
         holder = 0
-        for i in range(0,N+1):
-            scalar = ((-1)^i)/(sci.special.factorial(N-i)*sci.special.factorial(N+i+2))
-            AC = -Kcat1*np.cos((2*i+2)*omega*TnonDim) + (2*i+2)*omega*np.sin((2*i+2)*omega*TnonDim)
+        for i in range(0, N+1):
+            scalar = ((-1) ^ i)/(sci.special.factorial(N-i)
+                      * sci.special.factorial(N+i+2))
+            AC = -Kcat1*np.cos((2*i+2)*omega*TnonDim) + (2*i+2) * \
+                               omega*np.sin((2*i+2)*omega*TnonDim)
             holder += scalar*AC
         Ievennorm += g2*holder
 
     # extract non dim harmonics These are all in nondimensional currents
-    bandwidth = np.array([0,4,0,4,0,4,0,4,0])
-    Harmonicsodd = mod.harm_gen(Ioddnorm ,Tdim,[freq],bandwidth, 1)
+    bandwidth = np.array([0, 4, 0, 4, 0, 4, 0, 4, 0])
+    Harmonicsodd = mod.harm_gen(Ioddnorm, Tdim, [freq], bandwidth, 1)
 
-    bandwidth = np.array([0,0,4,0,4,0,4,0,4])
-    Harmonicseven = mod.harm_gen(Ievennorm ,Tdim,[freq],bandwidth, 1)
-    #Harmonicseven = mod.harm_gen(Ievennorm,TnonDim,[omega],bandwidth, 1)
+    bandwidth = np.array([0, 0, 4, 0, 4, 0, 4, 0, 4])
+    Harmonicseven = mod.harm_gen(Ievennorm, Tdim, [freq], bandwidth, 1)
+    # Harmonicseven = mod.harm_gen(Ievennorm,TnonDim,[omega],bandwidth, 1)
 
 
     print('input parameters:\n', input_parameters)
@@ -342,4 +342,3 @@ if __name__ == '__main__':
     plt.xlabel("time [non-dim]")
     plt.savefig("e_app_nondim.pdf")
     np.savetxt("e_app_nondim.dat", np.transpose(np.vstack((TnonDim, Eapp))))
-

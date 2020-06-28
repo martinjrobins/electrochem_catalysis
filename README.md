@@ -27,8 +27,10 @@ You can then "activate" the environment using:
 source env/bin/activate
 ```
 
-Finally, install the dependencies listed in the `requirements.txt` file:
+Finally, install the dependencies listed in the `requirements.txt` file, you will need 
+to install wheel first (for pybamm install):
 
 ```bash
+pip install wheel
 pip install -r requirements.txt
 ```
